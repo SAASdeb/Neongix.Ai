@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeGenie - AI Code Generator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google GenAI SDK Import Map -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/genai": "https://esm.run/@google/genai"
+        }
+      }
+    </script>
+
+    <!-- 1. API KEY CONFIGURATION -->
+    <script>
+      // =================================================================
+      // TODO: PASTE YOUR API KEY BELOW INSIDE THE QUOTES
+      // =================================================================
+      window.API_KEY = "AIzaSyDo2onOHECKQKbmSQX0fDUgyrVmLsSGvCA"; 
+    </script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['Fira Code', 'monospace'],
+            },
+            colors: {
+              gray: {
+                750: '#2d3748',
+                850: '#1a202c',
+                950: '#0d1117',
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              }
+            }
+          },
+        },
+      }
+    </script>
+
+    <style>
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0d1117;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #2d3748;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #4a5568;
+      }
+
+      /* Markdown Styles */
+      .markdown-body p { margin-bottom: 1rem; line-height: 1.6; color: #d1d5db; }
+      .markdown-body h1, .markdown-body h2, .markdown-body h3 { color: white; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+      .markdown-body h1 { font-size: 1.5rem; border-bottom: 1px solid #374151; padding-bottom: 0.5rem; }
+      .markdown-body h2 { font-size: 1.25rem; }
+      .markdown-body ul, .markdown-body ol { margin-bottom: 1rem; padding-left: 1.5rem; color: #d1d5db; }
+      .markdown-body ul { list-style-type: disc; }
+      .markdown-body ol { list-style-type: decimal; }
+      .markdown-body code { font-family: 'Fira Code', monospace; background: #1f2937; padding: 0.2em 0.4em; border-radius: 0.25rem; font-size: 0.875em; color: #f472b6; }
+      .markdown-body pre { background: #1f2937 !important; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1rem; border: 1px solid #374151; }
+      .markdown-body pre code { background: transparent; padding: 0; color: inherit; font-size: 0.9em; }
+      .markdown-body a { color: #60a5fa; text-decoration: none; }
+      .markdown-body a:hover { text-decoration: underline; }
+      
+      .hidden { display: none !important; }
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-950 text-gray-100 antialiased h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="flex-none h-16 border-b border-gray-800 bg-gray-950/80 backdrop-blur-md flex items-center justify-between px-6 z-10">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-br from-blue-600 to-green-500 p-2 rounded-lg shadow-lg shadow-blue-900/20">
+                <i data-lucide="sparkles" class="text-white w-5 h-5"></i>
+            </div>
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-400 tracking-tight">
+                CodeGenie
+            </h1>
+        </div>
+        <div>
+             <button id="clear-btn" class="hidden text-gray-500 hover:text-red-400 transition-colors p-2 rounded-full hover:bg-gray-900" title="Clear Chat">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+             </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-hidden flex flex-col relative">
+        <div id="chat-container" class="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
+            <div class="max-w-4xl mx-auto min-h-full flex flex-col pb-4">
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="flex flex-col items-center justify-center flex-1 text-center p-8 opacity-80 select-none animate-fade-in">
+                    <div class="relative mb-8 group">
+                        <div class="absolute -inset-4 bg-gradient-to-r from-blue-600 to-green-500 rounded-full opacity-20 blur-xl animate-pulse-slow"></div>
+                        <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-2xl relative group-hover:scale-105 transition-transform duration-300">
+                            <i data-lucide="code-2" class="w-16 h-16 text-blue-400"></i>
+                        </div>
+                        <div class="absolute -bottom-2 -right-2 bg-green-500 p-2 rounded-full border-4 border-gray-950 shadow-lg">
+                            <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+                        </div>
+                    </div>
+                    
+                    <h1 class="text-4xl font-bold text-white mb-4 tracking-tight">CodeGenie</h1>
+                    <p class="text-gray-400 max-w-md mb-10 leading-relaxed text-lg">
+                        Expert Backend & Pure Vanilla JS generator.
+                        <br />
+                        <span class="text-base text-blue-400/80 font-mono mt-2 block">No Frameworks. No TypeScript. Just Code.</span>
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-2xl w-full text-left">
+                        <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-xl hover:border-blue-500/30 hover:bg-gray-900 transition-all cursor-default">
+                            <div class="flex items-center gap-3 mb-2 text-blue-400">
+                                <i data-lucide="server" class="w-5 h-5"></i>
+                                <span class="font-semibold text-lg">Backend Systems</span>
+                            </div>
+                            <p class="text-sm text-gray-500 leading-relaxed">
+                                Node.js, Python, SQL. Robust APIs and server logic with setup guides.
+                            </p>
+                        </div>
+                        
+                        <div class="bg-gray-900/50 border border-gray-800 p-5 rounded-xl hover:border-green-500/30 hover:bg-gray-900 transition-all cursor-default">
+                            <div class="flex items-center gap-3 mb-2 text-green-400">
+                                <i data-lucide="file-code" class="w-5 h-5"></i>
+                                <span class="font-semibold text-lg">Pure Frontend</span>
+                            </div>
+                            <p class="text-sm text-gray-500 leading-relaxed">
+                                HTML, CSS, JS. No build steps, no .tsx, just ready-to-run files.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages Area -->
+                <div id="messages-list" class="space-y-8 pb-4 hidden"></div>
+
+                <!-- Loading Indicator -->
+                <div id="loading-indicator" class="hidden flex gap-4 mt-4 animate-fade-in">
+                    <div class="flex-none w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-green-500 flex items-center justify-center animate-pulse">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-white"></i>
+                    </div>
+                    <div class="bg-gray-900 border border-gray-800 rounded-2xl rounded-tl-sm px-6 py-4 flex items-center gap-3 shadow-md">
+                        <i data-lucide="loader-2" class="animate-spin text-blue-400 w-5 h-5"></i>
+                        <span class="text-gray-400 text-sm font-medium">Writing code...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="flex-none p-4 bg-gray-950 border-t border-gray-800 z-20">
+            <div class="max-w-3xl mx-auto space-y-4">
+                
+                <div class="flex justify-center">
+                    <div class="flex items-center gap-2 p-1 bg-gray-900 rounded-lg border border-gray-800 w-fit shadow-sm">
+                        <button id="mode-expert" class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all bg-blue-600/20 text-blue-300 border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.15)]">
+                            <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                            <span>Expert Code (Flash)</span>
+                        </button>
+                        
+                        <button id="mode-search" class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all text-gray-400 hover:text-gray-200 hover:bg-gray-800">
+                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            <span>Web Research (Flash)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="relative group">
+                    <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl opacity-30 group-hover:opacity-60 transition duration-500 blur"></div>
+                    <div class="relative flex items-end gap-2 bg-gray-900 p-2 rounded-xl border border-gray-800 shadow-xl">
+                        <textarea
+                            id="prompt-input"
+                            placeholder="Ask for a Python API or a pure HTML/CSS login page..."
+                            class="w-full bg-transparent text-gray-100 placeholder-gray-500 text-base p-3 focus:outline-none resize-none max-h-[200px] min-h-[50px] scrollbar-hide font-sans"
+                            rows="1"
+                        ></textarea>
+                        <button
+                            id="send-btn"
+                            type="button"
+                            class="flex-none p-3 rounded-lg mb-0.5 transition-all duration-200 bg-gray-800 text-gray-600 cursor-not-allowed"
+                            disabled
+                        >
+                            <i data-lucide="send" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-center text-xs text-gray-600 font-medium">
+                    Generating <span id="mode-text">expert</span> Backend and Vanilla JS solutions.
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- App Logic -->
+    <script type="module">
+        // -----------------------------------------------------------------------------
+        // STATE MANAGEMENT & DOM ELEMENTS
+        // -----------------------------------------------------------------------------
+        let useSearch = false;
+        let isLoading = false;
+
+        // DOM Elements
+        const promptInput = document.getElementById('prompt-input');
+        const sendBtn = document.getElementById('send-btn');
+        const messagesList = document.getElementById('messages-list');
+        const emptyState = document.getElementById('empty-state');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const chatContainer = document.getElementById('chat-container');
+        const clearBtn = document.getElementById('clear-btn');
+        const modeExpertBtn = document.getElementById('mode-expert');
+        const modeSearchBtn = document.getElementById('mode-search');
+        const modeText = document.getElementById('mode-text');
+
+        // -----------------------------------------------------------------------------
+        // INITIALIZATION
+        // -----------------------------------------------------------------------------
+        
+        // Wait for DOM to be fully loaded
+        window.onload = () => {
+             if (window.lucide) {
+                window.lucide.createIcons();
+            }
+            if (promptInput) {
+                promptInput.value = '';
+                updateSendButton();
+            }
+        };
+
+        // -----------------------------------------------------------------------------
+        // UI LOGIC
+        // -----------------------------------------------------------------------------
+
+        if (promptInput) {
+            promptInput.addEventListener('input', function() {
+                // Auto-resize textarea
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+                
+                updateSendButton();
+            });
+
+            promptInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                }
+            });
+        }
+
+        if (sendBtn) {
+            sendBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                handleSubmit();
+            });
+        }
+
+        function updateSendButton() {
+            if (!promptInput || !sendBtn) return;
+            
+            const hasText = promptInput.value.trim().length > 0;
+            const disabled = !hasText || isLoading;
+            
+            sendBtn.disabled = disabled;
+            
+            if (disabled) {
+                sendBtn.className = "flex-none p-3 rounded-lg mb-0.5 transition-all duration-200 bg-gray-800 text-gray-600 cursor-not-allowed";
+            } else {
+                sendBtn.className = "flex-none p-3 rounded-lg mb-0.5 transition-all duration-200 bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20 cursor-pointer";
+            }
+        }
+
+        // -----------------------------------------------------------------------------
+        // MAIN SUBMISSION HANDLER
+        // -----------------------------------------------------------------------------
+
+        async function handleSubmit() {
+            const text = promptInput.value.trim();
+            if (!text || isLoading) return;
+
+            // 1. Reset UI
+            promptInput.value = '';
+            promptInput.style.height = 'auto';
+            isLoading = true;
+            updateSendButton();
+            
+            emptyState.classList.add('hidden');
+            messagesList.classList.remove('hidden');
+            clearBtn.classList.remove('hidden');
+
+            // 2. Show User Message
+            appendMessage('user', text);
+            
+            // 3. Show Loader
+            loadingIndicator.classList.remove('hidden');
+            scrollToBottom();
+
+            // 4. Call API
+            try {
+                const response = await generateCode(text, useSearch);
+                appendMessage('model', response.text, response.sources);
+            } catch (error) {
+                console.error("Error details:", error);
+                
+                let errorMsg = `**Error**: ${error.message}`;
+                if (error.status === 429 || (error.message && error.message.includes("429"))) {
+                    errorMsg = "**Quota Exceeded**: The API is busy. Please wait a minute and try again.";
+                } else if (error.message.includes("API Key")) {
+                    errorMsg = "**API Key Missing**: Please open `index.html` and paste your Google GenAI API Key into the `window.API_KEY` section at the top.";
+                } else if (error.message.includes("Failed to fetch")) {
+                    errorMsg = "**Network Error**: Could not connect to Google GenAI. Please check your internet connection or API key.";
+                }
+                
+                appendMessage('model', errorMsg);
+            } finally {
+                isLoading = false;
+                loadingIndicator.classList.add('hidden');
+                updateSendButton();
+                scrollToBottom();
+            }
+        }
+
+        // -----------------------------------------------------------------------------
+        // DISPLAY HELPERS
+        // -----------------------------------------------------------------------------
+
+        function appendMessage(role, content, sources = []) {
+            const div = document.createElement('div');
+            div.className = `flex gap-4 animate-fade-in ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            // Avatar
+            let avatarHtml = '';
+            if (role === 'model') {
+                avatarHtml = `
+                    <div class="flex-none w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-green-500 flex items-center justify-center mt-1 shadow-lg shadow-blue-900/20">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-white"></i>
+                    </div>`;
+            } else {
+                avatarHtml = `
+                    <div class="flex-none w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center mt-1">
+                        <span class="text-xs font-bold text-gray-400">YO</span>
+                    </div>`;
+            }
+
+            // Bubble
+            const bubbleClass = role === 'user' 
+                ? 'bg-blue-600/10 border border-blue-500/20 text-blue-50 rounded-tr-sm' 
+                : 'bg-gray-900 border border-gray-800 text-gray-100 rounded-tl-sm w-full';
+
+            // Parse Content
+            let innerContent = '';
+            if (role === 'user') {
+                innerContent = `<p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(content)}</p>`;
+            } else {
+                innerContent = window.marked ? window.marked.parse(content) : content;
+            }
+
+            // Parse Sources
+            let sourcesHtml = '';
+            if (sources && sources.length > 0) {
+                sourcesHtml = `<div class="mt-3 flex flex-wrap gap-2 pt-2 border-t border-gray-800/50">`;
+                sources.forEach(src => {
+                    const hostname = new URL(src.uri).hostname;
+                    sourcesHtml += `
+                        <a href="${src.uri}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-full text-xs text-gray-400 hover:text-blue-400 transition-colors">
+                            <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                            <span class="truncate max-w-[200px]">${hostname}</span>
+                        </a>
+                    `;
+                });
+                sourcesHtml += `</div>`;
+            }
+
+            div.innerHTML = role === 'model' 
+                ? `${avatarHtml}<div class="flex flex-col max-w-[85%] items-start"><div class="rounded-2xl px-6 py-4 shadow-sm ${bubbleClass} markdown-body">${innerContent}</div>${sourcesHtml}</div>`
+                : `<div class="flex flex-col max-w-[85%] items-end"><div class="rounded-2xl px-6 py-4 shadow-sm ${bubbleClass}">${innerContent}</div></div>${avatarHtml}`;
+
+            messagesList.appendChild(div);
+            
+            // Refresh Icons & Syntax Highlighting
+            if (window.lucide) window.lucide.createIcons();
+            if (role === 'model' && window.hljs) {
+                div.querySelectorAll('pre code').forEach((block) => {
+                    window.hljs.highlightElement(block);
+                });
+            }
+            
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        if (modeExpertBtn) modeExpertBtn.addEventListener('click', () => setMode(false));
+        if (modeSearchBtn) modeSearchBtn.addEventListener('click', () => setMode(true));
+
+        function setMode(search) {
+            if (isLoading) return;
+            useSearch = search;
+            
+            if (!useSearch) {
+                modeExpertBtn.className = "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all bg-blue-600/20 text-blue-300 border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.15)]";
+                modeSearchBtn.className = "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all text-gray-400 hover:text-gray-200 hover:bg-gray-800";
+                modeText.innerText = "expert";
+                promptInput.placeholder = "Ask for a Python API or a pure HTML/CSS login page...";
+            } else {
+                modeExpertBtn.className = "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all text-gray-400 hover:text-gray-200 hover:bg-gray-800";
+                modeSearchBtn.className = "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all bg-purple-600/20 text-purple-300 border border-purple-500/30 shadow-[0_0_10px_rgba(147,51,234,0.15)]";
+                modeText.innerText = "researched";
+                promptInput.placeholder = "Ask about backend libs (e.g., 'Best Node.js ORM?')";
+            }
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                messagesList.innerHTML = '';
+                messagesList.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                clearBtn.classList.add('hidden');
+                promptInput.value = '';
+                promptInput.style.height = 'auto';
+                updateSendButton();
+            });
+        }
+
+        // -----------------------------------------------------------------------------
+        // AI API LOGIC
+        // -----------------------------------------------------------------------------
+
+        async function generateCode(prompt, useSearch) {
+          // Dynamic Import: Loads the SDK only when needed to prevent blocking UI
+          const { GoogleGenAI } = await import("@google/genai");
+
+          const apiKey = window.API_KEY || (window.process && window.process.env && window.process.env.API_KEY);
+          if (!apiKey) throw new Error("API Key is missing. Please check the top of index.html");
+          
+          const ai = new GoogleGenAI({ apiKey });
+          
+          // Use Flash model for speed and higher limits
+          const modelName = 'gemini-2.5-flash';
+
+          let tools = undefined;
+          if (useSearch) {
+            tools = [{ googleSearch: {} }];
+          }
+
+          const systemInstruction = `You are CodeGenie, a Full-Stack expert specializing in robust Backend Architecture and pure Vanilla Web Standards.
+
+CORE COMPETENCIES:
+1. **Backend Engineering**: Node.js (Express), Python (Flask/FastAPI), SQL.
+2. **Vanilla Frontend**: Pure HTML5, CSS3, JS.
+
+STRICT GENERATION RULES:
+- **NO TYPESCRIPT/REACT** unless explicitly asked.
+- **DEFAULT TO VANILLA**: Use standard \`index.html\`, \`style.css\`, and \`script.js\`.
+- **CODE BLOCKS**: Use markdown code blocks.
+- **QUALITY**: Write clean, modern, semantic code.
+
+${useSearch ? "You have access to Google Search." : "Use your expert internal knowledge."}`;
+
+          const response = await ai.models.generateContent({
+              model: modelName,
+              contents: prompt,
+              config: {
+                systemInstruction,
+                tools: tools,
+              },
+          });
+
+          const text = response.text || "No response generated.";
+          
+          const sources = [];
+          const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+          if (chunks) {
+            chunks.forEach((chunk) => {
+              if (chunk.web) {
+                sources.push({
+                  title: chunk.web.title || "Web Source",
+                  uri: chunk.web.uri,
+                });
+              }
+            });
+          }
+
+          return { text, sources };
+        }
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
